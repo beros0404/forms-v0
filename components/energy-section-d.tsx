@@ -24,8 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from '@/components/ui/textarea'
-import { useFormData } from './DataProvider';
-import { useRouter } from 'next/navigation';
+import { useFormData } from './DataProvider'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 const savingOpportunitySchema = z.object({
   measureType: z.string().optional(),
@@ -127,9 +128,39 @@ export function EnergySectionD() {
     })
   }
 
-  const onSubmit = (values: FormData) => {
-    setFormData(prevData => ({ ...prevData, sectionD: values }));
-    router.push('/section-e');
+  const onSubmit = async (values: FormData) => {
+    try {
+      // Log the form values
+      console.log('Section D Form Values:', values);
+
+      // Map the opportunities to match the database structure
+      const dataToSubmit = values.opportunities?.map(opp => ({
+        measureType: opp.measureType,
+        otherSpecification: opp.otherSpecification,
+        measureDescription: opp.measureDescription,
+        costAndFinancing: opp.costAndFinancing,
+        estimatedSavings: opp.estimatedSavings
+      })) || [];
+
+      // Submit to Supabase
+      const { data, error } = await supabase
+        .from('sectionD')
+        .insert(dataToSubmit);
+
+      if (error) {
+        console.error('Error submitting to Supabase:', error);
+        throw error;
+      }
+
+      console.log('Successfully submitted to Supabase:', data);
+      
+      // Update form context and navigate
+      setFormData(prevData => ({ ...prevData, sectionD: values }));
+      router.push('/section-e');
+    } catch (error) {
+      console.error('Form submission error:', error);
+      alert('Error al guardar los datos. Por favor intente nuevamente.');
+    }
   }
 
   return (

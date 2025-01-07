@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Button } from '@/components/ui/button'
-import { supabase, supabaseKey } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 import {
   Form,
@@ -84,8 +84,8 @@ type FormData = z.infer<typeof formSchema>
 
 export function EnergySectionE() {
   const [opportunities, setOpportunities] = useState([0])
-  const [thankYouMessage, setThankYouMessage] = useState(false)  // New state for the thank you message
-  const { setFormData, submitData } = useFormData()
+  const [thankYouMessage, setThankYouMessage] = useState(false)
+  const { setFormData } = useFormData()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -132,42 +132,47 @@ export function EnergySectionE() {
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setFormData(prevData => ({ ...prevData, sectionE: values }))
-    
-    // Aquí puedes enviar los datos a Supabase
-    const data = values.opportunities;  // Asumiendo que las oportunidades son lo que deseas guardar
-
     try {
-      const response = await fetch('postgresql://postgres:${supabaseKey]@db.aacogbvasxyvfdbrhzuh.supabase.co:5432/postgres', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey, // Asegúrate de incluir este encabezado
-        },
-        body: JSON.stringify(data),
-      });
-    
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error en la solicitud:', errorData);
-        throw new Error(`Error en la solicitud: ${errorData.message}`);
+      // Log the form values
+      console.log('Section E Form Values:', values);
+
+      // Map the opportunities to match the database structure
+      const dataToSubmit = values.opportunities?.map(opp => ({
+        measureType: opp.measureType,
+        otherSpecification: opp.otherSpecification,
+        measureDescription: opp.measureDescription,
+        file: opp.fileBucketUrl,
+        estimatedSavings: opp.estimatedSavings,
+        costAndFinancing: opp.costAndFinancing,
+        opportunities: opp
+      })) || [];
+
+      // Submit to Supabase
+      const { data, error } = await supabase
+        .from('sectionE')
+        .insert(dataToSubmit);
+
+      if (error) {
+        console.error('Error submitting to Supabase:', error);
+        throw error;
       }
 
-      // Si la respuesta es correcta, muestra el mensaje de agradecimiento
+      console.log('Successfully submitted to Supabase:', data);
+      
+      // Show success message
       setThankYouMessage(true);
 
-      // Resetear el formulario
+      // Reset form
       form.reset();
 
-      // Ocultar el mensaje de agradecimiento después de 3 segundos
+      // Hide message after 3 seconds
       setTimeout(() => {
         setThankYouMessage(false);
       }, 3000);
 
-      console.log('Formulario enviado con éxito:', await response.json());
     } catch (error) {
-      console.error('Error al enviar formulario:', error);
+      console.error('Form submission error:', error);
+      alert('Error al guardar los datos. Por favor intente nuevamente.');
     }
   }
 
@@ -406,3 +411,4 @@ export function EnergySectionE() {
     </Card>
   )
 }
+
